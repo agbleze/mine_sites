@@ -30,3 +30,20 @@ naip = NAIP(naip_root)
 
 
 # %%
+chesapeake_root = os.path.join(tempfile.gettempdir(), "chesapeake")
+os.makedirs(chesapeake_root, exist_ok=True)
+chesapeake = ChesapeakeDE(chesapeake_root, crs=naip.crs, res=naip.res, download=True)
+
+#%%
+dataset = naip & chesapeake
+
+#%%
+sampler = RandomGeoSampler(dataset, size=1000, length=10)
+
+#%% dataloader
+dataloader = DataLoader(dataset, sampler=sampler, collate_fn=stack_samples)
+
+#%% training
+for sample in dataloader:
+    image = sample["image"]
+    target = sample["mask"]

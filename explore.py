@@ -47,3 +47,4 @@ dataloader = DataLoader(dataset, sampler=sampler, collate_fn=stack_samples)
 for sample in dataloader:
     image = sample["image"]
     target = sample["mask"]
+# %%

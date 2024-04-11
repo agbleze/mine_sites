@@ -163,4 +163,5 @@ cython_debug/
 solafune_find_mining_sites/*
 
 mine_sites/solafune_find_mining_sites/*
+*.json
 

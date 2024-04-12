@@ -96,6 +96,10 @@ dataloader = iter(dataloader)
 print(f"Number of images in dataset: {len(dataset)}")
 print(f"Dataset Classes: {dataset.classes}")
 
-
+#%%  ####   load a sample and batch of images and labels
+sample = dataset[0]
+x, y = sample["image"], sample["label"]
+print(x.shape, x.dtype, x.min(), x.max())
+print(y, dataset.classes[y])
 
 # %%

@@ -17,7 +17,7 @@ from torchgeo.transforms import AugmentationSequential, indices
 
 # %%
 class MinMaxNormalize(K.IntensityAugmentationBase2D):
-    """Normalize channels to therange [0, 1] using min/max values
+    """Normalize channels to the range [0, 1] using min/max values
 
     Args:
         K (_type_): _description_
@@ -102,4 +102,119 @@ x, y = sample["image"], sample["label"]
 print(x.shape, x.dtype, x.min(), x.max())
 print(y, dataset.classes[y])
 
+# %%  test dataloader for loading batches of images
+# image is o shape (4, 13, 64, 64) -> (batch_num, channels(bands), height, width)
+batch = next(dataloader)
+x, y = batch["image"], batch["label"]
+print(x.shape, x.dtype, x.min(), x.max())
+print(y, [dataset.classes[i] for i in y])
+# %% transforms usage
+transform = MinMaxNormalize(mins, maxs)
+x = transform(x)
+print(x.shape)
+print(x.dtype, x.min(), x.max())
+
+
+# %% compute indices and append as additional channel
+transform = indices.AppendNDVI(index_nir=7, index_red=3)
+batch = next(dataloader)
+x = batch["image"]
+print(x.shape)
+x = transform(x)
+print(x.shape)
+
+# %% adding several indices to the channels
+transforms = nn.Sequential(MinMaxNormalize(mins, maxs),
+                            indices.AppendNDBI(index_swir=11, index_nir=7),
+                            indices.AppendNDSI(index_green=3, index_swir=11),
+                            indices.AppendNDVI(index_nir=7, index_red=3),
+                            indices.AppendNDWI(index_green=2, index_nir=7)
+                        )
+
+
+batch = next(dataloader)
+x = batch["image"]
+print(x.shape)
+x = transforms(x)
+print(x.shape)
+
+#%% chain indicies with augmentations form Kornia
+transforms = AugmentationSequential(
+    MinMaxNormalize(mins, maxs),
+    indices.AppendNDBI(index_swir=11, index_nir=7),
+    indices.AppendNDSI(index_green=3, index_swir=11),
+    indices.AppendNDVI(index_nir=7, index_red=3),
+    indices.AppendNDWI(index_green=2, index_nir=7),
+    K.RandomHorizontalFlip(p=0.5),
+    K.RandomVerticalFlip(p=0.5),
+    data_keys=["image"],
+)
+
+batch = next(dataloader)
+
+print(batch["image"].shape)
+batch = transforms(batch)
+print(batch["image"].shape)
+
+
+
+#%% transformations are nn.Module hence can be sent to GPU for faster speed on large data
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+transforms = AugmentationSequential(
+    MinMaxNormalize(mins, maxs),
+    indices.AppendNDBI(index_swir=11, index_nir=7),
+    indices.AppendNDSI(index_green=3, index_swir=11),
+    indices.AppendNDVI(index_nir=7, index_red=3),
+    indices.AppendNDWI(index_green=2, index_nir=7),
+    K.RandomHorizontalFlip(p=0.5),
+    K.RandomVerticalFlip(p=0.5),
+    K.RandomAffine(degrees=(0.90), p=0.25),
+    K.RandomGaussianBlur(kernel_size=(3,3), sigma=(0.1, 2.0), p=0.25),
+    K.RandomResizedCrop(size=(512, 512), scale=(0.8, 1.0), p=0.25),
+    data_keys=["image"],
+)
+
+transforms_gpu = AugmentationSequential(
+                    MinMaxNormalize(mins.to(device), maxs.to(device)),
+                    indices.AppendNDBI(index_swir=11, index_nir=7),
+                    indices.AppendNDSI(index_green=3, index_swir=11),
+                    indices.AppendNDVI(index_nir=7, index_red=3),
+                    indices.AppendNDWI(index_green=2, index_nir=7),
+                    K.RandomHorizontalFlip(p=0.5),
+                    K.RandomVerticalFlip(p=0.5),
+                    K.RandomAffine(degrees=(0.90), p=0.25),
+                    K.RandomGaussianBlur(kernel_size=(3,3), sigma=(0.1, 2.0), p=0.25),
+                    K.RandomResizedCrop(size=(512, 512), scale=(0.8, 1.0), p=0.25),
+                    data_keys=["image"],
+                ).to(device)
+
+def get_batch_cpu():
+    return dict(image=torch.randn(64, 13, 512, 512).to("cpu"))
+
+def get_batch_gpu():
+    return dict(image=torch.randn(64, 13, 512, 512).to(device))
+
+#%%timeit -n 1 -r 5
+_ = transforms(get_batch_cpu())
+
+
+#%%timeit -n 1 -r 5
+_ = transforms_gpu(get_batch_gpu())
+
+
+#%% visualize images and labels
+transforms = AugmentationSequential(MinMaxNormalize(mins, maxs), data_keys=["image"])
+dataset = EuroSAT100(root, transforms=transforms)
+
+#%%
+idx = 21
+sample = dataset[idx]
+rgb = sample["image"][0, 1:4]
+image = T.ToPILImage()(rgb)
+print(f"Class label: {dataset.classes[sample['label']]}")
+image.resize((256, 256), resample=Image.BILINEAR).show()
+
+### index channels apex accuracy (ICAC)
 # %%

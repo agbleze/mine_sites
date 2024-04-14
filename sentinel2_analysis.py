@@ -34,3 +34,13 @@ for i, band in enumerate(bands, start=1):
     plt.show()
 
 # %%
+train_root = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/train"
+
+
+#%%
+import os
+
+os.listdir(train_root)[1]
+
+
+# %%

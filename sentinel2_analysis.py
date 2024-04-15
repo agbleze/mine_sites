@@ -42,5 +42,9 @@ import os
 
 os.listdir(train_root)[1]
 
+#%%
 
+import numpy as np
+# %%
+np.array(rgb_bands)
 # %%

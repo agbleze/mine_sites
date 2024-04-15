@@ -99,48 +99,19 @@ for i in next(img_1):
 # %%  ## create a dataset object that loads images and labels
 #  Apat to the EuroSAT format nad cater for our folder structure
 #%%
-
 from torchvision.datasets.folder import DatasetFolder
 from torchvision.datasets.vision import VisionDataset
-from typing import Union, Callable, Any, Optional, Tuple, List, Dict
+from typing import Union, Callable, Any, Optional, Tuple, List, Dict, cast
 from pathlib import Path
 import os
 import numpy as np
 import pandas as pd
-
+import rasterio
+from torch import Tensor
+import torch
+from torchgeo.datasets import RasterDataset, stack_samples, unbind_samples
 #%%
-class MineSiteDataset(MineSiteImageFolder):
-    def __init__():
-        pass
-    
-    
-
-#%%    
-class MineSiteImageFolder(VisionDataset):
-    def __init__(self, root: Union[str, Path],
-                 loader: Callable[[str], Any],
-                 extensions: Optional[Tuple[str, ...]] = None,
-                 transform: Optional[Callable] = None,
-                 is_valid_file: Optional[Callable[[str], bool]] = None,
-                 allow_empty: bool = False,
-                 ) -> None:
-        super().__init__(transform, )
-        self.root = root
-        samples = self.make_dataset()  ## pass params
-        
-        self.samples = samples
-        
-        
-    def find_classes() -> Tuple[List[str], Dict[str, int]]:
-        """This returns a hard-coded binary classes and class to index.
-            It is hardcorded because the classes and not provided in the file 
-            but deduced from their binary nature and task at hand
-        """
-        
-        classes = ["not_mining_site", "mining_site"]
-        class_to_idx = {"not_mining_site": 0, "mining_site": 1}
-        return classes, class_to_idx
-    def get_all_image_bands(self, root: Optional[Union[str, Path]], img_name: Optional[Union[str, Path]],
+def get_all_image_bands(self, root: Optional[Union[str, Path]], img_name: Optional[Union[str, Path]],
                             img_idx: Optional[int] = 1
                             ) -> np.ndarray:
         if not root:
@@ -157,7 +128,65 @@ class MineSiteImageFolder(VisionDataset):
             bands = [src.read(i) for i in range(1, 13)]
             
         return bands
-            
+    
+def get_tiff_img(path):
+        with rasterio.open(path) as src:
+            img_allbands = [src.read(band) for band in range(1, 13)]
+        return img_allbands
+
+
+class MineSiteImageFolder(VisionDataset):
+    def __init__(self, root: Union[str, Path],
+                 loader: Callable[[str], Any],
+                 target_file_path: str,
+                 extensions: Optional[Tuple[str, ...]] = None,
+                 transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None,
+                 is_valid_file: Optional[Callable[[str], bool]] = None,
+                 allow_empty: bool = False,
+                 class_to_idx: Optional[Union[Dict, None]] = None,
+                 fetch_for_all_classes = True, 
+                 target_file_has_header = False,
+                 img_name: Optional[Union[str, None]] = None,
+                 img_idx: Optional[Union[int, None]] = None
+                 ) -> None:
+        super().__init__(transform)
+        self.root = root
+        self.target_file_path = target_file_path
+        self.target_file_has_header = target_file_has_header
+        self.fetch_for_all_classes = fetch_for_all_classes
+        self.img_name = img_name
+        self.img_idx = img_idx
+        self.loader = loader
+        self.target_transform = target_transform
+        #self.is_valid_file = is_valid_file
+        self.allow_empty = allow_empty
+        
+        if not class_to_idx:
+            self.classes, self.class_to_idx = self.find_classes()
+            class_to_idx = self.class_to_idx
+        samples = self.make_dataset(root=self.root,
+                                    target_file_path=self.target_file_path,
+                                    class_to_idx=self.class_to_idx,
+                                    img_name=self.img_name, img_idx=self.img_idx,
+                                    target_file_has_header=self.target_file_has_header 
+                                    )  ## pass params
+        
+        self.samples = samples
+        
+    @property    
+    def find_classes() -> Tuple[List[str], Dict[str, int]]:
+        """This returns a hard-coded binary classes and class to index.
+            It is hardcorded because the classes and not provided in the file 
+            but deduced from their binary nature and task at hand
+        """
+        
+        classes = ["not_mining_site", "mining_site"]
+        class_to_idx = {"not_mining_site": 0, "mining_site": 1}
+        return classes, class_to_idx
+    
+    
+    
     def get_rgb_img(rgb_bands: List[int]):
         pass
     
@@ -219,10 +248,137 @@ class MineSiteImageFolder(VisionDataset):
             instances.append((img_path, img_target_idx))
             
         return instances
-        
-        
+    def _load_image(self, index) -> Tuple[Tensor, Tensor]:
+        """Load a single image with its class label as tensor
 
-# Select bands 4, 3, 2 for RGB visualization
+        Args:
+            index (_type_): _description_
+            
+        """
+        img, label = self.__getitem__(index)
+        img_array = np.array(img)
+        img_tensor = torch.from_numpy(img_array).float()
+        img_tensor = img_tensor.permute((2,0,1))
+        label_tensor = torch.tensor(label).long()
+        return img_tensor, label_tensor
+        
+        
+    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+        path, target = self.samples[index]
+        sample = self.loader(path=path)
+        if self.transform:
+            sample = self.transform(sample)
+        if self.target_transform:
+            target = self.target_transform(target)
+            
+        return sample, target
+    
+    def __len__(self) -> int:
+        return len(self.samples)
+            
+    
+class MineSiteDataset(MineSiteImageFolder, RasterDataset):
+
+    all_band_names = ("B01",
+                        "B02",
+                        "B03",
+                        "B04",
+                        "B05",
+                        "B06",
+                        "B07",
+                        "B08",
+                        "B8A",
+                        "B09",
+                        "B10",
+                        "B11",
+                        "B12",
+                    )
+    
+    rgb_bands = ("B04", "B03", "B02")
+    BAND_SETS = {"all": all_band_names, "rgb": rgb_bands}
+    
+    def __init__(self, root: Union[str, Path],
+                 loader: Callable[[str], Any],
+                 target_file_path: str,
+                 extensions: Optional[Tuple[str, ...]] = None,
+                 transforms: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None,
+                 is_valid_file: Optional[Callable[[str], bool]] = None,
+                 allow_empty: bool = False,
+                 #class_to_idx: Optional[Union[Dict, None]] = None,
+                 fetch_for_all_classes = True, 
+                 target_file_has_header = False,
+                 img_name: Optional[Union[str, None]] = None,
+                 img_idx: Optional[Union[int, None]] = None,
+                 bands = BAND_SETS["all"],
+                 class_to_idx = None,
+                ):
+        self.root = root
+        self.target_file_path = target_file_path
+        self.target_file_has_header = target_file_has_header
+        self.fetch_for_all_classes = fetch_for_all_classes
+        self.img_name = img_name
+        self.img_idx = img_idx
+        self.loader = loader
+        self.transforms = transforms
+        self.bands = bands
+        self.class_to_idx = class_to_idx
+        self.band_indices = Tensor([self.all_band_names.index(b) for b in self.all_band_names]).long()
+        
+        super().__init__(root=self.root, target_file_path= self.target_file_path,
+                         target_file_has_header=self.target_file_has_header,
+                        fetch_for_all_classes=self.fetch_for_all_classes,
+                        loader=self.loader, class_to_idx=self.class_to_idx
+                        )
+    
+    
+    
+    def __getitem__(self, index):
+        img, label = self._load_image(index)
+        img = torch.index_select(img, dim=0, index=self.band_indices).float()
+        sample = {"image": img, "label": label}
+        if self.transforms:
+            sample = self.transforms(sample)
+
+        return sample
+    
+    def plot(self, sample, show_title):
+        rgb_indices = []
+        for band in self.rgb_bands:
+            if band in self.bands:
+                rgb_indices.append(self.bands.index(band))
+            else:
+                raise ValueError(f"band {band} not found in existing bands which are {self.bands}")
+            
+        image = np.take(sample["image"].numpy(), indices=rgb_indices, axis=0)
+        image = np.rollaxis(image, 0, 3)
+        image = np.clip(image / 3000, 0, 1)   
+        
+        label = cast(int, sample["label"].item())
+        label_class = self.classes[label]
+        
+        fig, ax = plt.subplot(figsize=(4,4))
+        ax.imshow(image)
+        ax.axis("off")
+        
+        if show_title:
+            title = f"Label: {label_class}"
+            ax.set_title(title)
+            
+        return fig
+
+#%% load and plot data  
+
+root = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/train"   
+target_file_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/answer.csv"       
+MineSiteDataset(root=root, target_file_path=target_file_path,
+                target_file_has_header=False, loader=get_tiff_img,
+                class_to_idx = {"not_mining_site": 0, "mining_site": 1}
+                
+                )
+
+
+#%% Select bands 4, 3, 2 for RGB visualization
 rgb_bands = np.dstack([bands[3], bands[2], bands[1]])
 
 # Normalize bands to 0-255

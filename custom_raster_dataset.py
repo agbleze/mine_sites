@@ -110,6 +110,7 @@ import rasterio
 from torch import Tensor
 import torch
 from torchgeo.datasets import RasterDataset, stack_samples, unbind_samples
+from torchgeo.datasets.geo import NonGeoClassificationDataset
 #%%
 def get_all_image_bands(self, root: Optional[Union[str, Path]], img_name: Optional[Union[str, Path]],
                             img_idx: Optional[int] = 1
@@ -247,8 +248,8 @@ class MineSiteImageFolder(VisionDataset):
             img_target_idx = target_file_df[target_file_df[0]==img_name][1].values[0]
             instances.append((img_path, img_target_idx))
             
-        return instances
-    def _load_image(self, index) -> Tuple[Tensor, Tensor]:
+        return instances[10]
+    def _load_image(self, index) -> Tuple[Tensor, Tensor]: # take-out, import NonGeoClassificationDataset and use to override there
         """Load a single image with its class label as tensor
 
         Args:
@@ -296,6 +297,7 @@ class MineSiteDataset(MineSiteImageFolder, RasterDataset):
     
     rgb_bands = ("B04", "B03", "B02")
     BAND_SETS = {"all": all_band_names, "rgb": rgb_bands}
+    separate_files = False
     
     def __init__(self, root: Union[str, Path],
                  loader: Callable[[str], Any],
@@ -371,13 +373,21 @@ class MineSiteDataset(MineSiteImageFolder, RasterDataset):
 
 root = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/train"   
 target_file_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/answer.csv"       
-MineSiteDataset(root=root, target_file_path=target_file_path,
+mnds = MineSiteDataset(root=root, target_file_path=target_file_path,
                 target_file_has_header=False, loader=get_tiff_img,
                 class_to_idx = {"not_mining_site": 0, "mining_site": 1}
                 
                 )
 
+#%%
+from torchgeo.samplers import RandomGeoSampler
 
+
+#%%
+RandomGeoSampler(dataset=mnds[0], size=512, length=10)
+
+#%%
+mnds[0]
 #%% Select bands 4, 3, 2 for RGB visualization
 rgb_bands = np.dstack([bands[3], bands[2], bands[1]])
 

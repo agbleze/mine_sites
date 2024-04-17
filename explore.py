@@ -11,6 +11,8 @@ from torchgeo.samplers import RandomGeoSampler
 
 # %%
 naip_root = os.path.join(tempfile.gettempdir(), "naip")
+
+#%%
 naip_url = (
     "https://naipeuwest.blob.core.windows.net/naip/v002/de/2018/de_060cm_2018/38075/"
 )
@@ -25,7 +27,7 @@ tiles = [
 for tile in tiles:
     download_url(naip_url + tile, naip_root)
     
-
+#%%
 naip = NAIP(naip_root)
 
 

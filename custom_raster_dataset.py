@@ -135,7 +135,7 @@ def get_tiff_img(path):
             img_allbands = [src.read(band) for band in range(1, 13)]
         return img_allbands
 
-
+#%%
 class MineSiteImageFolder(VisionDataset):
     def __init__(self, root: Union[str, Path],
                  loader: Callable[[str], Any],
@@ -175,8 +175,8 @@ class MineSiteImageFolder(VisionDataset):
         
         self.samples = samples
         
-    @property    
-    def find_classes() -> Tuple[List[str], Dict[str, int]]:
+ 
+    def find_classes(self) -> Tuple[List[str], Dict[str, int]]:
         """This returns a hard-coded binary classes and class to index.
             It is hardcorded because the classes and not provided in the file 
             but deduced from their binary nature and task at hand
@@ -249,19 +249,6 @@ class MineSiteImageFolder(VisionDataset):
             instances.append((img_path, img_target_idx))
             
         return instances[10]
-    def _load_image(self, index) -> Tuple[Tensor, Tensor]: # take-out, import NonGeoClassificationDataset and use to override there
-        """Load a single image with its class label as tensor
-
-        Args:
-            index (_type_): _description_
-            
-        """
-        img, label = self.__getitem__(index)
-        img_array = np.array(img)
-        img_tensor = torch.from_numpy(img_array).float()
-        img_tensor = img_tensor.permute((2,0,1))
-        label_tensor = torch.tensor(label).long()
-        return img_tensor, label_tensor
         
         
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
@@ -276,9 +263,64 @@ class MineSiteImageFolder(VisionDataset):
     
     def __len__(self) -> int:
         return len(self.samples)
+#%%            
+class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
+    def __init__(self, root: str,
+                 loader,
+                 target_file_path: str,
+                 is_valid_file = None,
+                 transforms = None,
+                 extensions: Optional[Tuple[str, ...]] = None,
+                 transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None,
+                 allow_empty: bool = False,
+                 class_to_idx: Optional[Union[Dict, None]] = None,
+                 fetch_for_all_classes = True, 
+                 target_file_has_header = False,
+                 img_name: Optional[Union[str, None]] = None,
+                 img_idx: Optional[Union[int, None]] = None
+                 ) -> None:
+        super().__init__(
+                        root=root,
+                        is_valid_file=is_valid_file,
+                        loader=loader, class_to_idx=class_to_idx,
+                        target_file_path=target_file_path,
+                        target_file_has_header=target_file_has_header,
+                        transform=transform,
+                        fetch_for_all_classes=fetch_for_all_classes,
+                        img_name=img_name, img_idx=img_idx,
+                        target_transform=target_transform, allow_empty=allow_empty
+                        
+                    )
+        #self.transforms = transforms
+        
+    def _load_image(self, index) -> Tuple[Tensor, Tensor]: # take-out, import NonGeoClassificationDataset and use to override there
+        """Load a single image with its class label as tensor
+
+        Args:
+            index (_type_): _description_
             
+        """
+        img, label = MineSiteImageFolder.__getitem__(index)
+        img_array = np.array(img)
+        img_tensor = torch.from_numpy(img_array).float()
+        img_tensor = img_tensor.permute((2,0,1))
+        label_tensor = torch.tensor(label).long()
+        return img_tensor, label_tensor
     
-class MineSiteDataset(MineSiteImageFolder, RasterDataset):
+    #def __len__(self) -> int:
+    #    return len(self.img)
+    
+    def __getitem__(self, index: int) -> dict[str, Tensor]:
+        image, label = self._load_image(index)
+        sample = {"image": image, "label": label}
+        
+        if self.transforms:
+            sample = self.transforms(sample)
+        return sample
+        
+#%%    
+class MineSiteDataset(NonGeoMineSiteClassificationDataset):
 
     all_band_names = ("B01",
                         "B02",
@@ -314,6 +356,7 @@ class MineSiteDataset(MineSiteImageFolder, RasterDataset):
                  img_idx: Optional[Union[int, None]] = None,
                  bands = BAND_SETS["all"],
                  class_to_idx = None,
+                 index=1
                 ):
         self.root = root
         self.target_file_path = target_file_path
@@ -326,16 +369,19 @@ class MineSiteDataset(MineSiteImageFolder, RasterDataset):
         self.bands = bands
         self.class_to_idx = class_to_idx
         self.band_indices = Tensor([self.all_band_names.index(b) for b in self.all_band_names]).long()
-        
+        #self.index=index
         super().__init__(root=self.root, target_file_path= self.target_file_path,
                          target_file_has_header=self.target_file_has_header,
                         fetch_for_all_classes=self.fetch_for_all_classes,
-                        loader=self.loader, class_to_idx=self.class_to_idx
+                        loader=self.loader, class_to_idx=self.class_to_idx,
+                        is_valid_file=is_valid_file, transform=transforms,
                         )
     
     
     
-    def __getitem__(self, index):
+    def __getitem__(self,index=0):#, index=None):
+        #if not index:
+        #    index = self.index
         img, label = self._load_image(index)
         img = torch.index_select(img, dim=0, index=self.band_indices).float()
         sample = {"image": img, "label": label}
@@ -375,16 +421,40 @@ root = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/train"
 target_file_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/answer.csv"       
 mnds = MineSiteDataset(root=root, target_file_path=target_file_path,
                 target_file_has_header=False, loader=get_tiff_img,
-                class_to_idx = {"not_mining_site": 0, "mining_site": 1}
+                #class_to_idx = {"not_mining_site": 0, "mining_site": 1}
                 
                 )
 
 #%%
 from torchgeo.samplers import RandomGeoSampler
-
+from torch.utils.data import DataLoader
 
 #%%
-RandomGeoSampler(dataset=mnds[0], size=512, length=10)
+batch_size = 4
+num_workers = 2
+
+#%% load EuroSAT MS dataset and dataloader
+#root = os.path.join(tempfile.gettempdir(), "eurosat100")
+#dataset = EuroSAT100(root, download=True)
+dataloader = DataLoader(mnds, batch_size=batch_size,
+                        shuffle=True, num_workers=num_workers
+                        )
+
+dataloader = iter(dataloader)
+print(f"Number of images in dataset: {len(mnds)}")
+print(f"Dataset Classes: {mnds.classes}")
+
+
+
+#%%  ####   load a sample and batch of images and labels
+mnds_sample = mnds[0]
+
+#%%
+x, y = mnds_sample["image"], mnds_sample["label"]
+print(x.shape, x.dtype, x.min(), x.max())
+print(y, mnds.classes[y])
+#%%
+#RandomGeoSampler(dataset=mnds, size=512, length=10)
 
 #%%
 mnds[0]

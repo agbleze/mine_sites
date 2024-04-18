@@ -91,10 +91,6 @@ img_1 = rasterio.open(train_0_path)
 #%%
 plot.show(img_1)
 
-# %%
-
-for i in next(img_1):
-    print(i)
 
 # %%  ## create a dataset object that loads images and labels
 #  Apat to the EuroSAT format nad cater for our folder structure
@@ -111,6 +107,7 @@ from torch import Tensor
 import torch
 from torchgeo.datasets import RasterDataset, stack_samples, unbind_samples
 from torchgeo.datasets.geo import NonGeoClassificationDataset
+from torch.utils.data import Dataset, DataLoader
 #%%
 def get_all_image_bands(self, root: Optional[Union[str, Path]], img_name: Optional[Union[str, Path]],
                             img_idx: Optional[int] = 1
@@ -136,7 +133,7 @@ def get_tiff_img(path):
         return img_allbands
 
 #%%
-class MineSiteImageFolder(VisionDataset):
+class MineSiteImageFolder(Dataset):
     def __init__(self, root: Union[str, Path],
                  loader: Callable[[str], Any],
                  target_file_path: str,
@@ -151,7 +148,7 @@ class MineSiteImageFolder(VisionDataset):
                  img_name: Optional[Union[str, None]] = None,
                  img_idx: Optional[Union[int, None]] = None
                  ) -> None:
-        super().__init__(transform)
+        #super().__init__(transform)
         self.root = root
         self.target_file_path = target_file_path
         self.target_file_has_header = target_file_has_header
@@ -229,7 +226,7 @@ class MineSiteImageFolder(VisionDataset):
         if fetch_for_all_classes:
             cls_idx = class_to_idx.values()
             cls_target_df = target_file_df[target_file_df[1].isin(cls_idx)]
-            img_names, img_target_idx = cls_target_df[0].values, cls_target_df[1]
+            img_names, img_target_idx = cls_target_df[0].values, cls_target_df[1].values
             img_path = [os.path.join(root, img_nm) for img_nm in img_names]
             
             for data_sample in zip(img_path, img_target_idx):
@@ -248,18 +245,18 @@ class MineSiteImageFolder(VisionDataset):
             img_target_idx = target_file_df[target_file_df[0]==img_name][1].values[0]
             instances.append((img_path, img_target_idx))
             
-        return instances[10]
+        return instances#[10]
         
         
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
-        path, target = self.samples[index]
-        sample = self.loader(path=path)
+        path, self.target = self.samples[index]
+        self.sample = self.loader(path=path)
         if self.transform:
-            sample = self.transform(sample)
+            self.sample = self.transform(self.sample)
         if self.target_transform:
-            target = self.target_transform(target)
+            self.target = self.target_transform(self.target)
             
-        return sample, target
+        return self.sample, self.target
     
     def __len__(self) -> int:
         return len(self.samples)
@@ -301,7 +298,7 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
             index (_type_): _description_
             
         """
-        img, label = MineSiteImageFolder.__getitem__(index)
+        img, label = MineSiteImageFolder
         img_array = np.array(img)
         img_tensor = torch.from_numpy(img_array).float()
         img_tensor = img_tensor.permute((2,0,1))
@@ -356,7 +353,7 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
                  img_idx: Optional[Union[int, None]] = None,
                  bands = BAND_SETS["all"],
                  class_to_idx = None,
-                 index=1
+                 #index=1
                 ):
         self.root = root
         self.target_file_path = target_file_path
@@ -379,7 +376,7 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
     
     
     
-    def __getitem__(self,index=0):#, index=None):
+    def __getitem__(self,index):#, index=None):
         #if not index:
         #    index = self.index
         img, label = self._load_image(index)
@@ -463,16 +460,6 @@ rgb_bands = np.dstack([bands[3], bands[2], bands[1]])
 
 # Normalize bands to 0-255
 rgb_bands = ((rgb_bands - rgb_bands.min()) / (rgb_bands.max() - rgb_bands.min()) * 255).astype(np.uint8)
-
-        
-    def __getitem__():
-        pass
-    
-    def __len__(self) -> int:
-        return super().__len__()()
-
-
-
 
 
 # %%

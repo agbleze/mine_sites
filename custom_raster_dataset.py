@@ -86,9 +86,6 @@ train_0_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/t
 img_1 = rasterio.open(train_0_path)
 
 #%%
-
-
-#%%
 plot.show(img_1)
 
 
@@ -130,7 +127,12 @@ def get_all_image_bands(self, root: Optional[Union[str, Path]], img_name: Option
 def get_tiff_img(path):
         with rasterio.open(path) as src:
             img_allbands = [src.read(band) for band in range(1, 13)]
+        dstacked_bands = np.dstack([band for band in img_allbands])
         return img_allbands
+#%%
+
+
+len(get_tiff_img(train_0_path))
 
 #%%
 class MineSiteImageFolder(Dataset):
@@ -143,7 +145,7 @@ class MineSiteImageFolder(Dataset):
                  is_valid_file: Optional[Callable[[str], bool]] = None,
                  allow_empty: bool = False,
                  class_to_idx: Optional[Union[Dict, None]] = None,
-                 fetch_for_all_classes = True, 
+                 fetch_for_all_classes = True,
                  target_file_has_header = False,
                  img_name: Optional[Union[str, None]] = None,
                  img_idx: Optional[Union[int, None]] = None
@@ -157,6 +159,7 @@ class MineSiteImageFolder(Dataset):
         self.img_idx = img_idx
         self.loader = loader
         self.target_transform = target_transform
+        self.transform = transform
         #self.is_valid_file = is_valid_file
         self.allow_empty = allow_empty
         
@@ -167,7 +170,7 @@ class MineSiteImageFolder(Dataset):
                                     target_file_path=self.target_file_path,
                                     class_to_idx=self.class_to_idx,
                                     img_name=self.img_name, img_idx=self.img_idx,
-                                    target_file_has_header=self.target_file_has_header 
+                                    target_file_has_header=self.target_file_has_header,
                                     )  ## pass params
         
         self.samples = samples
@@ -249,14 +252,14 @@ class MineSiteImageFolder(Dataset):
         
         
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
-        path, self.target = self.samples[index]
-        self.sample = self.loader(path=path)
+        path, target = self.samples[index]
+        sample = self.loader(path=path)
         if self.transform:
-            self.sample = self.transform(self.sample)
+            sample = self.transform(sample)
         if self.target_transform:
-            self.target = self.target_transform(self.target)
+            target = self.target_transform(target)
             
-        return self.sample, self.target
+        return sample, target
     
     def __len__(self) -> int:
         return len(self.samples)
@@ -277,6 +280,12 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
                  img_name: Optional[Union[str, None]] = None,
                  img_idx: Optional[Union[int, None]] = None
                  ) -> None:
+        self.root = root
+        self.loader = loader
+        self.target_file_path = target_file_path
+        self.target_file_has_header = target_file_has_header
+        self.transforms = transforms
+        self.transform = transform
         super().__init__(
                         root=root,
                         is_valid_file=is_valid_file,
@@ -289,6 +298,11 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
                         target_transform=target_transform, allow_empty=allow_empty
                         
                     )
+        
+        self.mnfolder = MineSiteImageFolder(root=self.root, target_file_path=self.target_file_path,
+                                            target_file_has_header=self.target_file_has_header,
+                                            loader=self.loader
+                                            )
         #self.transforms = transforms
         
     def _load_image(self, index) -> Tuple[Tensor, Tensor]: # take-out, import NonGeoClassificationDataset and use to override there
@@ -298,10 +312,10 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
             index (_type_): _description_
             
         """
-        img, label = MineSiteImageFolder
+        img, label = self.mnfolder[index]
         img_array = np.array(img)
         img_tensor = torch.from_numpy(img_array).float()
-        img_tensor = img_tensor.permute((2,0,1))
+        img_tensor = img_tensor.permute(2,0,1)
         label_tensor = torch.tensor(label).long()
         return img_tensor, label_tensor
     
@@ -381,11 +395,11 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
         #    index = self.index
         img, label = self._load_image(index)
         img = torch.index_select(img, dim=0, index=self.band_indices).float()
-        sample = {"image": img, "label": label}
+        self.sample = {"image": img, "label": label}
         if self.transforms:
-            sample = self.transforms(sample)
+            self.sample = self.transforms(self.sample)
 
-        return sample
+        return self.sample
     
     def plot(self, sample, show_title):
         rgb_indices = []
@@ -444,12 +458,28 @@ print(f"Dataset Classes: {mnds.classes}")
 
 
 #%%  ####   load a sample and batch of images and labels
-mnds_sample = mnds[0]
+mnds_sample = mnds[100]
 
 #%%
 x, y = mnds_sample["image"], mnds_sample["label"]
 print(x.shape, x.dtype, x.min(), x.max())
 print(y, mnds.classes[y])
+
+
+#%%
+
+np.dstack([n for n in mnds_sample["image"]])#.shape
+
+#%%
+
+np.dstack(mnds_sample["image"]).size
+#%
+# %%  test dataloader for loading batches of images
+# image is o shape (4, 13, 64, 64) -> (batch_num, channels(bands), height, width)
+batch = next(dataloader)
+x, y = batch["image"], batch["label"]
+print(x.shape, x.dtype, x.min(), x.max())
+print(y, [mnds.classes[i] for i in y])
 #%%
 #RandomGeoSampler(dataset=mnds, size=512, length=10)
 

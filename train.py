@@ -9,9 +9,9 @@ from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 from torchgeo.datamodules import EuroSAT100DataModule
 from torchgeo.trainers import ClassificationTask
-from torchgeo.models import ResNet18_Weights
-
-
+from torchgeo.models import ResNet18_Weights, ViTSmall16_Weights
+import timm
+from torchsummary import summary
 
 # %%
 batch_size = 10
@@ -59,4 +59,23 @@ trainer.fit(model=task, datamodule=datamodule)
 
 # %%
 trainer.test(model=task, datamodule=datamodule)
+# %%
+weights = ResNet18_Weights.SENTINEL2_ALL_MOCO
+# %%
+weights.get_state_dict().keys()
+# %%
+
+in_chans = weights.meta["in_chans"]
+model = timm.create_model("resnet18", in_chans=in_chans, num_classes=10)
+# %%
+model.load_state_dict(weights.get_state_dict(progress=True), strict=False)
+# %%
+import numpy as np
+summary(model.to("cuda"), input_size=(13,512,512))
+# %%
+vit_wet = ViTSmall16_Weights.SENTINEL2_ALL_DINO
+# %%
+in_chans = vit_wet.meta["in_chans"]
+model = timm.create_model("vit_small_patch16_224", in_chans=in_chans, num_classes=10, pretrained=True)
+model.load_state_dict(vit_wet.get_state_dict(progress=True), strict=False)
 # %%

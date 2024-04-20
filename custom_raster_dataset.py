@@ -105,6 +105,8 @@ import torch
 from torchgeo.datasets import RasterDataset, stack_samples, unbind_samples
 from torchgeo.datasets.geo import NonGeoClassificationDataset
 from torch.utils.data import Dataset, DataLoader
+import matplotlib.pyplot as plt
+from torchgeo.transforms import AugmentationSequential, indices
 #%%
 def get_all_image_bands(self, root: Optional[Union[str, Path]], img_name: Optional[Union[str, Path]],
                             img_idx: Optional[int] = 1
@@ -124,16 +126,35 @@ def get_all_image_bands(self, root: Optional[Union[str, Path]], img_name: Option
             
         return bands
     
-def get_tiff_img(path):
-        with rasterio.open(path) as src:
-            img_allbands = [src.read(band) for band in range(1, 13)]
-        dstacked_bands = np.dstack([band for band in img_allbands])
-        return img_allbands
-#%%
+# def get_tiff_img(path):
+#         with rasterio.open(path) as src:
+#             img_allbands = [src.read(band) for band in range(1, 13)]
+#         dstacked_bands = np.dstack([band for band in img_allbands])
+#         return img_allbands
 
+def get_tiff_img(path, return_all_bands, bands=("B01", "B03", "B02"),
+                 normalize_bands=True
+                ):
+    all_band_names = ("B01","B02", "B03","B04","B05", "B06",
+                      "B07","B08","B8A","B09","B11","B12"
+                    )
+    if return_all_bands:
+        band_indexs = [all_band_names.index(band_name) for band_name in all_band_names]
+    
+    else:
+        band_indexs = [all_band_names.index(band_name) for band_name in bands]
+    #print(band_indexs)
+    with rasterio.open(path) as src:
+        img_bands = [src.read(band) for band in range(1,13)]
+    dstacked_bands = np.dstack([img_bands[band_index] for band_index in band_indexs])
+    #dstacked_bands = np.dstack([img_bands[3], img_bands[2], img_bands[1]])
+    if normalize_bands:
+        # Normalize bands to 0-255
+        dstacked_bands = ((dstacked_bands - dstacked_bands.min()) / 
+                          (dstacked_bands.max() - dstacked_bands.min()) * 255
+                          ).astype(np.uint8)
 
-len(get_tiff_img(train_0_path))
-
+    return dstacked_bands
 #%%
 class MineSiteImageFolder(Dataset):
     def __init__(self, root: Union[str, Path],
@@ -148,7 +169,10 @@ class MineSiteImageFolder(Dataset):
                  fetch_for_all_classes = True,
                  target_file_has_header = False,
                  img_name: Optional[Union[str, None]] = None,
-                 img_idx: Optional[Union[int, None]] = None
+                 img_idx: Optional[Union[int, None]] = None,
+                 return_all_bands=False,
+                 bands=("B04", "B03", "B02"),
+                 normalize_bands=True
                  ) -> None:
         #super().__init__(transform)
         self.root = root
@@ -162,7 +186,10 @@ class MineSiteImageFolder(Dataset):
         self.transform = transform
         #self.is_valid_file = is_valid_file
         self.allow_empty = allow_empty
-        
+        self.return_all_bands = return_all_bands
+        self.bands = bands
+        self.normalize_bands = normalize_bands
+          
         if not class_to_idx:
             self.classes, self.class_to_idx = self.find_classes()
             class_to_idx = self.class_to_idx
@@ -185,11 +212,6 @@ class MineSiteImageFolder(Dataset):
         classes = ["not_mining_site", "mining_site"]
         class_to_idx = {"not_mining_site": 0, "mining_site": 1}
         return classes, class_to_idx
-    
-    
-    
-    def get_rgb_img(rgb_bands: List[int]):
-        pass
     
     def make_dataset(self, root, 
                      target_file_path: Union[str, Path],
@@ -253,7 +275,12 @@ class MineSiteImageFolder(Dataset):
         
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         path, target = self.samples[index]
-        sample = self.loader(path=path)
+        sample = self.loader(path=path,
+                             return_all_bands=self.return_all_bands,
+                             bands=self.bands,
+                             normalize_bands=self.normalize_bands
+                            )
+        #sample_dstack = np.dstack([band for band in sample])
         if self.transform:
             sample = self.transform(sample)
         if self.target_transform:
@@ -278,7 +305,10 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
                  fetch_for_all_classes = True, 
                  target_file_has_header = False,
                  img_name: Optional[Union[str, None]] = None,
-                 img_idx: Optional[Union[int, None]] = None
+                 img_idx: Optional[Union[int, None]] = None,
+                 return_all_bands=False,
+                 bands=("B04", "B03", "B02"),
+                 normalize_bands=True
                  ) -> None:
         self.root = root
         self.loader = loader
@@ -286,6 +316,9 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
         self.target_file_has_header = target_file_has_header
         self.transforms = transforms
         self.transform = transform
+        self.return_all_bands = return_all_bands
+        self.bands = bands
+        self.normalize_bands = normalize_bands
         super().__init__(
                         root=root,
                         is_valid_file=is_valid_file,
@@ -295,13 +328,17 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
                         transform=transform,
                         fetch_for_all_classes=fetch_for_all_classes,
                         img_name=img_name, img_idx=img_idx,
-                        target_transform=target_transform, allow_empty=allow_empty
+                        target_transform=target_transform, allow_empty=allow_empty,
+                        return_all_bands=self.return_all_bands, bands=self.bands,
+                        normalize_bands=self.normalize_bands
                         
                     )
         
         self.mnfolder = MineSiteImageFolder(root=self.root, target_file_path=self.target_file_path,
                                             target_file_has_header=self.target_file_has_header,
-                                            loader=self.loader
+                                            loader=self.loader,return_all_bands=self.return_all_bands, 
+                                            bands=self.bands,
+                                            normalize_bands=self.normalize_bands
                                             )
         #self.transforms = transforms
         
@@ -312,11 +349,11 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
             index (_type_): _description_
             
         """
-        img, label = self.mnfolder[index]
-        img_array = np.array(img)
-        img_tensor = torch.from_numpy(img_array).float()
+        self.img, self.label = self.mnfolder[index]
+        #img_array = np.array(img)
+        img_tensor = torch.from_numpy(self.img).float()
         img_tensor = img_tensor.permute(2,0,1)
-        label_tensor = torch.tensor(label).long()
+        label_tensor = torch.tensor(self.label).long()
         return img_tensor, label_tensor
     
     #def __len__(self) -> int:
@@ -343,7 +380,6 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
                         "B08",
                         "B8A",
                         "B09",
-                        "B10",
                         "B11",
                         "B12",
                     )
@@ -365,8 +401,11 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
                  target_file_has_header = False,
                  img_name: Optional[Union[str, None]] = None,
                  img_idx: Optional[Union[int, None]] = None,
-                 bands = BAND_SETS["all"],
+                 #bands = BAND_SETS["all"],
                  class_to_idx = None,
+                 return_all_bands=False, 
+                 bands=("B04", "B03", "B02"),
+                normalize_bands=True,
                  #index=1
                 ):
         self.root = root
@@ -380,12 +419,17 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
         self.bands = bands
         self.class_to_idx = class_to_idx
         self.band_indices = Tensor([self.all_band_names.index(b) for b in self.all_band_names]).long()
+        self.return_all_bands = return_all_bands
+        self.normalize_bands = normalize_bands
         #self.index=index
         super().__init__(root=self.root, target_file_path= self.target_file_path,
                          target_file_has_header=self.target_file_has_header,
                         fetch_for_all_classes=self.fetch_for_all_classes,
                         loader=self.loader, class_to_idx=self.class_to_idx,
                         is_valid_file=is_valid_file, transform=transforms,
+                        return_all_bands=return_all_bands,
+                        bands=bands,
+                        normalize_bands=self.normalize_bands,
                         )
     
     
@@ -394,14 +438,20 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
         #if not index:
         #    index = self.index
         img, label = self._load_image(index)
-        img = torch.index_select(img, dim=0, index=self.band_indices).float()
+        #img = torch.index_select(img, dim=0, index=self.band_indices).float()
+        #img = np.dstack([band for band in img])
         self.sample = {"image": img, "label": label}
         if self.transforms:
             self.sample = self.transforms(self.sample)
 
         return self.sample
+    def plot(self, index):
+        self._load_image(index)
+        plt.imshow(self.img)
+        plt.show()
+        
     
-    def plot(self, sample, show_title):
+    def _plot(self, sample, show_title):
         rgb_indices = []
         for band in self.rgb_bands:
             if band in self.bands:
@@ -410,13 +460,15 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
                 raise ValueError(f"band {band} not found in existing bands which are {self.bands}")
             
         image = np.take(sample["image"].numpy(), indices=rgb_indices, axis=0)
+        #rgb_bands = np.dstack([image[0], image[1], image[2]])
+        #image = ((rgb_bands - rgb_bands.min()) / (rgb_bands.max() - rgb_bands.min()) * 255).astype(np.uint8)
         image = np.rollaxis(image, 0, 3)
-        image = np.clip(image / 3000, 0, 1)   
+        #image = np.clip(image / 3000, 0, 1)   
         
         label = cast(int, sample["label"].item())
         label_class = self.classes[label]
         
-        fig, ax = plt.subplot(figsize=(4,4))
+        fig, ax = plt.subplots(figsize=(4,4))
         ax.imshow(image)
         ax.axis("off")
         
@@ -432,6 +484,7 @@ root = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/train"
 target_file_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/answer.csv"       
 mnds = MineSiteDataset(root=root, target_file_path=target_file_path,
                 target_file_has_header=False, loader=get_tiff_img,
+                return_all_bands=True
                 #class_to_idx = {"not_mining_site": 0, "mining_site": 1}
                 
                 )
@@ -448,27 +501,111 @@ num_workers = 2
 #root = os.path.join(tempfile.gettempdir(), "eurosat100")
 #dataset = EuroSAT100(root, download=True)
 dataloader = DataLoader(mnds, batch_size=batch_size,
-                        shuffle=True, num_workers=num_workers
+                        shuffle=True, num_workers=num_workers,
+                        collate_fn=stack_samples
                         )
 
 dataloader = iter(dataloader)
 print(f"Number of images in dataset: {len(mnds)}")
 print(f"Dataset Classes: {mnds.classes}")
 
+#%%
+
+batch = next(dataloader)
+x, y = batch["image"], batch["label"]
+print(x.shape, x.dtype, x.min(), x.max())
+
+# %% compute indices and append as additional channel
+transform = indices.AppendNDVI(index_nir=7, index_red=3)
+batch = next(dataloader)
+x = batch["image"]
+print(x.shape)
+x = transform(x)
+print(x.shape)
 
 
 #%%  ####   load a sample and batch of images and labels
-mnds_sample = mnds[100]
+mnds_sample = mnds[3]
 
+#%%
+mnds.plot(index=3)
+#mnds.plot(sample=mnds_sample, show_title="visualize")
 #%%
 x, y = mnds_sample["image"], mnds_sample["label"]
 print(x.shape, x.dtype, x.min(), x.max())
 print(y, mnds.classes[y])
 
+#%%
+img_samp  = mnds_sample.get("image")
+
+
+
+#%%
+from torchvision import datasets, models, transforms
+import torch.nn as nn
+from torch.optim import SGD, Adam
+import torch
+from torchsummary import summary
 
 #%%
 
-np.dstack([n for n in mnds_sample["image"]])#.shape
+
+resnet18 = models.resnet18(pretrained=True)
+
+#%%
+
+for param in resnet18.layer1():
+    print(param)
+
+
+#%%
+device = "cuda" if torch.cuda.is_available() else "cpu"
+def conv_layer(in_chan, out_chan, kernel_size, stride=1):
+    return nn.Sequential(
+                    nn.Conv2d(in_channels=in_chan, out_channels=out_chan,
+                              kernel_size=kernel_size, 
+                              stride=stride
+                              ),
+                    nn.ReLU(),
+                    nn.BatchNorm2d(num_features=out_chan),
+                    nn.MaxPool2d(kernel_size=2)
+                )
+
+def get_model():
+    model = nn.Sequential(conv_layer(12, 64, 3),
+                          conv_layer(64, 512, 3),
+                          conv_layer(in_chan=512, out_chan=512, kernel_size=3),
+                          conv_layer(in_chan=512, out_chan=512, kernel_size=3),
+                          conv_layer(in_chan=512, out_chan=512, kernel_size=3),
+                          conv_layer(512, 512, 3),
+                          nn.Flatten(),
+                          nn.Linear(18432, 1),
+                          nn.Sigmoid()
+                          ).to(device)
+    
+    loss_fn = nn.BCELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    return model, loss_fn, optimizer
+
+#%%
+
+model, loss_fn, optimizer = get_model()
+
+
+#%%
+ex = torch.zeros(1,3,512,512)
+summary(model, input_size=(12, 512, 512))
+
+#%%
+
+mnds[100].plot()
+#%%
+#image_array = np.transpose(mnds_sample.get("image"), (1, 2, 0))
+plt.imshow(img_samp)
+plt.show()
+#%%
+
+np.stack([n for n in mnds_sample["image"]]).shape
 
 #%%
 

@@ -107,24 +107,114 @@ from torchgeo.datasets.geo import NonGeoClassificationDataset
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 from torchgeo.transforms import AugmentationSequential, indices
+import matplotlib.ticker as mticker
+from sklearn.model_selection import train_test_split
+from glob import glob
+import os
+import shutil
+from torchgeo.samplers import RandomGeoSampler
+from torch.utils.data import DataLoader
+from torchvision import datasets, models, transforms
+import torch.nn as nn
+from torch.optim import SGD, Adam
+import torch
+from torchsummary import summary
+from torchgeo.models import ResNet18_Weights, ViTSmall16_Weights
+import timm
+from torch_snippets import Report
 #%%
-def get_all_image_bands(self, root: Optional[Union[str, Path]], img_name: Optional[Union[str, Path]],
-                            img_idx: Optional[int] = 1
-                            ) -> np.ndarray:
-        if not root:
-            root = self.root
+# %%
+ans_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/answer.csv"
+df = pd.read_csv(ans_path, header=None)
+
+#%%
+
+df[1].value_counts()
+
+
+
+
+#%%
+
+X = df[0]
+y = df[1]
+
+#%%
+X_train, X_eval, y_train, y_eval = train_test_split(X.to_frame(), y.to_frame(), 
+                                                    test_size=.3, stratify=y.to_frame()[1],
+                                                    random_state=2024
+                                                    )
+
+#%%
+
+y_train.value_counts()
+
+#%%
+y_eval.value_counts()
+
+#%%
+X_val, X_test, y_val, y_test = train_test_split(X_eval, y_eval, test_size=.3,
+                                                random_state=2024, stratify=y_eval[1]
+                                                )
+
+#%%
+
+y_val.value_counts()
+
+#%%
+
+y_test.value_counts()
+
+
+#%%
+train_image_names = X_train[0].values.tolist()
+val_image_names = X_val[0].values.tolist()
+test_image_names = X_test[0].values.tolist()
+
+#%%
+df[df[0].isin(train_image_names)].to_csv("train_answers.csv", columns=[0, 1])
+df[df[0].isin(val_image_names)].to_csv("val_answers.csv", columns=[0, 1])
+df[df[0].isin(test_image_names)].to_csv("test_answers.csv", columns=[0, 1])
+#for img in os.listdir(root)
+
+#%%
+train_img_dir = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/model_train_images"
+val_img_dir = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/model_val_images"
+test_img_dir = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/model_test_images"
+#root_glob = f"{root}/*"
+
+train_img_dir, val_img_dir
+#%%
+for img_path in glob(root_glob):
+    img_name = os.path.basename(img_path)
+    if img_name in train_image_names:
+        shutil.copy(img_path, train_img_dir)
+    elif img_name in val_image_names:
+        shutil.copy(img_path, val_img_dir)
+    elif img_name in test_image_names:
+        shutil.copy(img_path, test_img_dir)
+    else:
+        print(f"Image does not belong to a split: {img_path}")
+    
+
+#%%
+# def get_all_image_bands(self, root: Optional[Union[str, Path]], img_name: Optional[Union[str, Path]],
+#                             img_idx: Optional[int] = 1
+#                             ) -> np.ndarray:
+#         if not root:
+#             root = self.root
             
-        if not img_name and not img_idx:
-            raise ValueError(f"img_name or img_idx must be provided")
+#         if not img_name and not img_idx:
+#             raise ValueError(f"img_name or img_idx must be provided")
         
-        if not img_name:
-            img_name = os.listdir(root)[img_idx]
+#         if not img_name:
+#             img_name = os.listdir(root)[img_idx]
         
-        img_path = os.path.join(root, img_name)
-        with rasterio.open(img_path) as src:
-            bands = [src.read(i) for i in range(1, 13)]
+#         img_path = os.path.join(root, img_name)
+#         with rasterio.open(img_path) as src:
+#             bands = [src.read(i) for i in range(1, 13)]
             
-        return bands
+#         return bands
     
 # def get_tiff_img(path):
 #         with rasterio.open(path) as src:
@@ -244,19 +334,28 @@ class MineSiteImageFolder(Dataset):
         if not target_file_has_header:
             target_file_df = pd.read_csv(target_file_path, header=None)
         else:
-            target_file_df = pd.read_csv(target_file_path, header=None)          
+            target_file_df = pd.read_csv(target_file_path)          
         
         
         instances = []
         if fetch_for_all_classes:
+            #print(f"in fetch_for_all_classes: {fetch_for_all_classes}")
             cls_idx = class_to_idx.values()
-            cls_target_df = target_file_df[target_file_df[1].isin(cls_idx)]
-            img_names, img_target_idx = cls_target_df[0].values, cls_target_df[1].values
+            #print(target_file_df)
+            columns = target_file_df.columns.to_list()
+            if len(columns) > 2:
+                target_file_df = target_file_df.drop(columns[0], axis=1)
+                columns = columns[1:]
+            
+            cls_target_df = target_file_df[target_file_df[columns[1]].isin(cls_idx)]
+            #print(f"cls_target_df: {cls_target_df}")
+            img_names, img_target_idx = cls_target_df[columns[0]].values, cls_target_df[columns[1]].values
             img_path = [os.path.join(root, img_nm) for img_nm in img_names]
             
             for data_sample in zip(img_path, img_target_idx):
                 instances.append(data_sample)
-        else:    
+        else: 
+            #print(f"Second Not in fetch_for_all_classes: {fetch_for_all_classes}")   
             if not img_name and not img_idx:
                 raise ValueError(f"""img_name or img_idx must be provided if you want to 
                                     fetch sample for a particular image. Or set fetch_for_all_classes: bool = True
@@ -351,9 +450,9 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
         """
         self.img, self.label = self.mnfolder[index]
         #img_array = np.array(img)
-        img_tensor = torch.from_numpy(self.img).float()
-        img_tensor = img_tensor.permute(2,0,1)
-        label_tensor = torch.tensor(self.label).long()
+        img_tensor = torch.tensor(self.img).permute(2,0,1).float()
+        #img_tensor = img_tensor.permute(2,0,1)
+        label_tensor = torch.tensor(self.label).float()
         return img_tensor, label_tensor
     
     #def __len__(self) -> int:
@@ -480,19 +579,31 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
 
 #%% load and plot data  
 
-root = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/train"   
-target_file_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/answer.csv"       
-mnds = MineSiteDataset(root=root, target_file_path=target_file_path,
+train_target_file_path = "/home/lin/codebase/mine_sites/train_answers.csv"
+val_target_file_path = "/home/lin/codebase/mine_sites/val_answers.csv"
+train_root = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/model_train_images"   
+target_file_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/answer.csv"  
+
+#%%
+ex_df = pd.read_csv(val_target_file_path, header=None)
+
+if 'Unnamed: 0' in ex_df.columns:
+    ex_df_drp = ex_df.drop('Unnamed: 0', axis=1)
+#%%
+     
+mnds = MineSiteDataset(root=train_root, target_file_path=train_target_file_path,
                 target_file_has_header=False, loader=get_tiff_img,
                 return_all_bands=True
-                #class_to_idx = {"not_mining_site": 0, "mining_site": 1}
                 
                 )
 
 #%%
-from torchgeo.samplers import RandomGeoSampler
-from torch.utils.data import DataLoader
-
+val_root = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/model_val_images"
+val_ans = "/home/lin/codebase/mine_sites/val_answers.csv"
+val_mnds = MineSiteDataset(root=val_root, target_file_path=val_ans,
+                target_file_has_header=False, loader=get_tiff_img,
+                return_all_bands=True  
+                )
 #%%
 batch_size = 4
 num_workers = 2
@@ -515,6 +626,9 @@ batch = next(dataloader)
 x, y = batch["image"], batch["label"]
 print(x.shape, x.dtype, x.min(), x.max())
 
+#%%
+
+x.to("cuda")
 # %% compute indices and append as additional channel
 transform = indices.AppendNDVI(index_nir=7, index_red=3)
 batch = next(dataloader)
@@ -528,35 +642,35 @@ print(x.shape)
 mnds_sample = mnds[3]
 
 #%%
-mnds.plot(index=3)
+#mnds.plot(index=3)
 #mnds.plot(sample=mnds_sample, show_title="visualize")
 #%%
 x, y = mnds_sample["image"], mnds_sample["label"]
 print(x.shape, x.dtype, x.min(), x.max())
-print(y, mnds.classes[y])
+#print(y, mnds.classes[y])
 
 #%%
 img_samp  = mnds_sample.get("image")
 
-
-
 #%%
-from torchvision import datasets, models, transforms
-import torch.nn as nn
-from torch.optim import SGD, Adam
-import torch
-from torchsummary import summary
-
-#%%
-
-
 resnet18 = models.resnet18(pretrained=True)
 
 #%%
+weights = ResNet18_Weights.SENTINEL2_ALL_MOCO
+weights.get_state_dict().keys()
 
-for param in resnet18.layer1():
-    print(param)
+#%%
+type(weights)
+# %%
 
+in_chans = weights.meta["in_chans"]
+#%%
+model = timm.create_model("resnet18", in_chans=in_chans, num_classes=2)
+# %%
+model.load_state_dict(weights.get_state_dict(progress=True), strict=False)
+# %%
+import numpy as np
+summary(model.to("cuda"), input_size=(13,512,512))
 
 #%%
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -583,7 +697,7 @@ def get_model():
                           nn.Sigmoid()
                           ).to(device)
     
-    loss_fn = nn.BCELoss()
+    loss_fn = nn.BCELoss().to(device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     return model, loss_fn, optimizer
 
@@ -593,9 +707,172 @@ model, loss_fn, optimizer = get_model()
 
 
 #%%
-ex = torch.zeros(1,3,512,512)
 summary(model, input_size=(12, 512, 512))
 
+
+#%%
+def train_batch(x, y, model, loss_fn, optimizer):
+    model.train()
+    prediction = model(x)
+    #print(f"prediction: {prediction}")
+    #print(f"prediction.shape: {prediction.shape}")
+    #print(f"y.shape: {y.shape}")
+    #print(f"y: {y}")
+    batch_loss = loss_fn(prediction.squeeze(), y)
+    batch_loss.backward()
+    optimizer.step()
+    optimizer.zero_grad()
+    return batch_loss.item()
+
+#%%
+@torch.no_grad()
+def accuracy(x, y, model):
+    model.eval()
+    prediction = model(x)
+    is_correct = (prediction > 0.5).squeeze() 
+    is_correct = (is_correct == y)
+    return is_correct.cpu().numpy().tolist()
+
+#%%
+@torch.no_grad()
+def val_loss(x, y, model):
+    model.eval()
+    prediction = model(x)
+    valid_loss = loss_fn(prediction.squeeze(), y)
+    return valid_loss.item()
+
+#%%
+train_target_file_path = "/home/lin/codebase/mine_sites/train_answers.csv"
+val_target_file_path = "/home/lin/codebase/mine_sites/val_answers.csv"
+#%%
+def get_data(train_img_dir, val_image_dir, 
+             train_target_file_path=train_target_file_path,
+             val_target_file_path=val_target_file_path,
+             target_file_has_header=False, 
+             loader=get_tiff_img,
+             return_all_bands=True,
+             batch_size=100
+            ):
+    train_dataset = MineSiteDataset(root=train_img_dir, 
+                                    target_file_path=train_target_file_path,
+                                    target_file_has_header=target_file_has_header, 
+                                    loader=loader,
+                                    return_all_bands=return_all_bands
+                                    
+                                    )
+    val_dataset = MineSiteDataset(root=val_image_dir, 
+                                  target_file_path=val_target_file_path,
+                                    target_file_has_header=target_file_has_header, 
+                                    loader=loader,
+                                    return_all_bands=return_all_bands
+                                    
+                                    )
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
+                                  shuffle=True, num_workers=num_workers,
+                                  collate_fn=stack_samples
+                                  )
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size,
+                                shuffle=True, num_workers=num_workers,
+                                collate_fn=stack_samples
+                                )
+    
+    return train_dataloader, val_dataloader
+    
+
+#%%
+num_epochs=10
+log = Report(n_epochs=num_epochs)
+def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
+                             optimizer, num_epochs=num_epochs, device="cuda"
+                             ):
+    train_losses, train_accuracies = [], []
+    val_losses, val_accuracies = [], []
+    
+    
+    for epoch in range(num_epochs):
+        train_epoch_losses, train_epoch_accuracies = [], []
+        val_epoch_accuracies, val_epoch_losses = [], []
+        #_n = len(train_dataload)
+        for ix, batch in enumerate(iter(train_dataload)):
+            x, y = batch["image"].to(device), batch["label"].to(device)
+            batch_loss = train_batch(x, y, model, loss_fn, optimizer)
+            train_epoch_losses.append(batch_loss)
+        train_epoch_loss = np.array(train_epoch_losses).mean()
+        
+        for ix, batch in enumerate(iter(train_dataload)):
+            x, y = batch["image"].to(device), batch["label"].to(device)
+            is_correct = accuracy(x, y, model)
+            train_epoch_accuracies.extend(is_correct)
+        train_epoch_accuracy = np.mean(train_epoch_accuracies)
+        
+        for ix, batch in enumerate(iter(val_dataload)):
+            x, y = batch["image"].to(device), batch["label"].to(device)
+            val_is_correct = accuracy(x, y, model)
+            val_epoch_accuracies.extend(val_is_correct)
+            val_batch_loss = val_loss(x, y, model)
+            val_epoch_losses.extend(val_batch_loss)
+            
+        val_epoch_loss = np.mean(val_epoch_losses)
+        val_epoch_accuracy = np.mean(val_epoch_accuracies)
+        
+        train_losses.append(train_epoch_loss)
+        train_accuracies.append(train_epoch_accuracy)
+        val_accuracies.append(val_epoch_accuracy)
+        val_losses.append(val_epoch_loss)
+        
+        log.record(pos=epoch+1, trn_loss=train_epoch_loss,
+                   trn_acc=train_epoch_accuracy,
+                   val_acc=val_epoch_accuracy,
+                   val_loss=val_epoch_loss,
+                   end="\r"
+                   )
+        log.report_avgs(epoch+1)
+    return {"train_loss": train_losses,
+            "train_accuracy": train_accuracies,
+            "valid_loss": val_losses,
+            "valid_accuracy": val_accuracies
+            }
+
+
+
+#%%
+def plot_loss(train_metric, val_metric, title, num_epochs=10, ylabel="acc"):
+    epochs = np.arange(num_epochs)+1
+    plt.subplot(111)
+    plt.plot(epochs, train_metric, "bo", label="train")
+    plt.plot(epochs, val_metric, "r", label="valid")
+    plt.xlabel("Epoch")
+    plt.ylabel(ylabel) 
+    plt.title(title)
+    plt.legend()
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    plt.gca().set_yticklabels(['{:.0f}%'.format(x*100) for x in plt.gca().get_yticks()])
+    plt.show()
+    
+    
+#%%
+
+train_dl, val_dl = get_data(train_img_dir=train_img_dir, 
+                            val_image_dir=val_img_dir,
+                            target_file_has_header=False, loader=get_tiff_img,
+                            return_all_bands=True, batch_size=100
+                            )
+
+#%%
+
+
+result = trigger_training_process(train_dataload=train_dl, val_dataload=val_dl,
+                                  model=model, loss_fn=loss_fn,
+                                  optimizer=optimizer, num_epochs=10
+                                  )
+
+#%%
+log.plot_epochs("trn_acc, val_acc".split(","))
+
+#%%
+import pandas as pd
+
+train_img_dir, val_img_dir
 #%%
 
 mnds[100].plot()
@@ -633,9 +910,8 @@ rgb_bands = ((rgb_bands - rgb_bands.min()) / (rgb_bands.max() - rgb_bands.min())
 from torchvision import get_image_backend
 
 get_image_backend()
-# %%
-ans_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/answer.csv"
-df = pd.read_csv(ans_path, header=None)
+
+
 # %%
 df.iloc[0]
 # %%

@@ -122,7 +122,6 @@ from torchsummary import summary
 from torchgeo.models import ResNet18_Weights, ViTSmall16_Weights
 import timm
 from torch_snippets import Report
-#%%
 # %%
 ans_path = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/train/answer.csv"
 df = pd.read_csv(ans_path, header=None)
@@ -149,7 +148,6 @@ X_train, X_eval, y_train, y_eval = train_test_split(X.to_frame(), y.to_frame(),
 
 y_train.value_counts()
 
-#%%
 y_eval.value_counts()
 
 #%%
@@ -348,7 +346,7 @@ class MineSiteImageFolder(Dataset):
                 columns = columns[1:]
             
             cls_target_df = target_file_df[target_file_df[columns[1]].isin(cls_idx)]
-            #print(f"cls_target_df: {cls_target_df}")
+            #(f"cls_target_df: {cls_target_df}")
             img_names, img_target_idx = cls_target_df[columns[0]].values, cls_target_df[columns[1]].values
             img_path = [os.path.join(root, img_nm) for img_nm in img_names]
             
@@ -592,7 +590,7 @@ if 'Unnamed: 0' in ex_df.columns:
 #%%
      
 mnds = MineSiteDataset(root=train_root, target_file_path=train_target_file_path,
-                target_file_has_header=False, loader=get_tiff_img,
+                target_file_has_header=True, loader=get_tiff_img,
                 return_all_bands=True
                 
                 )
@@ -601,7 +599,7 @@ mnds = MineSiteDataset(root=train_root, target_file_path=train_target_file_path,
 val_root = "/home/lin/codebase/mine_sites/solafune_find_mining_sites/model_val_images"
 val_ans = "/home/lin/codebase/mine_sites/val_answers.csv"
 val_mnds = MineSiteDataset(root=val_root, target_file_path=val_ans,
-                target_file_has_header=False, loader=get_tiff_img,
+                target_file_has_header=True, loader=get_tiff_img,
                 return_all_bands=True  
                 )
 #%%
@@ -626,9 +624,7 @@ batch = next(dataloader)
 x, y = batch["image"], batch["label"]
 print(x.shape, x.dtype, x.min(), x.max())
 
-#%%
-
-x.to("cuda")
+#x.to("cuda")
 # %% compute indices and append as additional channel
 transform = indices.AppendNDVI(index_nir=7, index_red=3)
 batch = next(dataloader)
@@ -738,7 +734,10 @@ def accuracy(x, y, model):
 def val_loss(x, y, model):
     model.eval()
     prediction = model(x)
-    valid_loss = loss_fn(prediction.squeeze(), y)
+    #print(f"prediction.squeeze(): {prediction.squeeze()}")
+    #print(f"y: {y}")
+    prediction = prediction.squeeze()
+    valid_loss = loss_fn(prediction, y)
     return valid_loss.item()
 
 #%%
@@ -748,10 +747,11 @@ val_target_file_path = "/home/lin/codebase/mine_sites/val_answers.csv"
 def get_data(train_img_dir, val_image_dir, 
              train_target_file_path=train_target_file_path,
              val_target_file_path=val_target_file_path,
-             target_file_has_header=False, 
+             target_file_has_header=True, 
              loader=get_tiff_img,
              return_all_bands=True,
-             batch_size=100
+             batch_size=10, drop_last=True,
+             num_workers=4
             ):
     train_dataset = MineSiteDataset(root=train_img_dir, 
                                     target_file_path=train_target_file_path,
@@ -769,11 +769,11 @@ def get_data(train_img_dir, val_image_dir,
                                     )
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size,
                                   shuffle=True, num_workers=num_workers,
-                                  collate_fn=stack_samples
+                                  collate_fn=stack_samples, drop_last=drop_last
                                   )
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size,
                                 shuffle=True, num_workers=num_workers,
-                                collate_fn=stack_samples
+                                collate_fn=stack_samples, drop_last=drop_last
                                 )
     
     return train_dataloader, val_dataloader
@@ -810,7 +810,7 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
             val_is_correct = accuracy(x, y, model)
             val_epoch_accuracies.extend(val_is_correct)
             val_batch_loss = val_loss(x, y, model)
-            val_epoch_losses.extend(val_batch_loss)
+            val_epoch_losses.append(val_batch_loss)
             
         val_epoch_loss = np.mean(val_epoch_losses)
         val_epoch_accuracy = np.mean(val_epoch_accuracies)
@@ -854,8 +854,8 @@ def plot_loss(train_metric, val_metric, title, num_epochs=10, ylabel="acc"):
 
 train_dl, val_dl = get_data(train_img_dir=train_img_dir, 
                             val_image_dir=val_img_dir,
-                            target_file_has_header=False, loader=get_tiff_img,
-                            return_all_bands=True, batch_size=100
+                            target_file_has_header=True, loader=get_tiff_img,
+                            return_all_bands=True, batch_size=10
                             )
 
 #%%
@@ -863,12 +863,23 @@ train_dl, val_dl = get_data(train_img_dir=train_img_dir,
 
 result = trigger_training_process(train_dataload=train_dl, val_dataload=val_dl,
                                   model=model, loss_fn=loss_fn,
-                                  optimizer=optimizer, num_epochs=10
+                                  optimizer=optimizer, num_epochs=200
                                   )
 
 #%%
 log.plot_epochs("trn_acc, val_acc".split(","))
 
+
+#%%
+
+with open()
+#%%
+for varname in optimizer.state_dict():
+    print(varname, "\t", optimizer.state_dict()[varname])
+
+
+#%%
++233 244 638339
 #%%
 import pandas as pd
 

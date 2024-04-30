@@ -871,15 +871,34 @@ log.plot_epochs("trn_acc, val_acc".split(","))
 
 
 #%%
-
-with open()
+import json
+with open("epoch_200_results.json", "w") as f:
+    json.dump(result, f)
 #%%
 for varname in optimizer.state_dict():
     print(varname, "\t", optimizer.state_dict()[varname])
 
 
 #%%
-+233 244 638339
+model_store = "/home/lin/codebase/mine_sites/model_store"
+
+#%% ## saving model after 200 epochs
+torch.save(model.state_dict(), f"{model_store}/base_model.pth")
+
+#%% save entire model
+
+torch.save(model, f"{model_store}/entire_basemodel.pth")
+
+#%%
+entire_basemodel = torch.load(f"{model_store}/entire_basemodel.pth")
+
+#%% save model for resumming
+
+
+
+#%%
+
+summary(entire_basemodel, input_size=(12, 512, 512))
 #%%
 import pandas as pd
 

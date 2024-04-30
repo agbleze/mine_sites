@@ -218,3 +218,5 @@ image.resize((256, 256), resample=Image.BILINEAR).show()
 
 ### index channels apex accuracy (ICAC)
 # %%
+# normalize batch and data
+

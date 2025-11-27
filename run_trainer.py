@@ -27,6 +27,8 @@ def main():
     
     train_dl, val_dl = get_data(train_img_dir=train_img_dir, 
                             val_image_dir=val_img_dir,
+                            train_target_file_path=train_target_file,
+                            val_target_file_path=val_target_file,
                             target_file_has_header=True, 
                             loader=get_tiff_img,
                             return_all_bands=True, batch_size=10

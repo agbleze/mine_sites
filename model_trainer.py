@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch_snippets import Report
+import torch.nn as nn
 
 
 @torch.no_grad()
@@ -65,7 +66,7 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
             x, y = batch["image"].to(device), batch["label"].to(device)
             val_is_correct = accuracy(x, y, model)
             val_epoch_accuracies.extend(val_is_correct)
-            val_batch_loss = val_loss(x, y, model)
+            val_batch_loss = val_loss(x, y, model, loss_fn=loss_fn)
             val_epoch_losses.append(val_batch_loss)
             
         val_epoch_loss = np.mean(val_epoch_losses)
@@ -91,4 +92,31 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
 
 
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+def conv_layer(in_chan, out_chan, kernel_size, stride=1):
+    return nn.Sequential(
+                    nn.Conv2d(in_channels=in_chan, out_channels=out_chan,
+                              kernel_size=kernel_size, 
+                              stride=stride
+                              ),
+                    nn.ReLU(),
+                    nn.BatchNorm2d(num_features=out_chan),
+                    nn.MaxPool2d(kernel_size=2)
+                )
+
+def get_model():
+    model = nn.Sequential(conv_layer(12, 64, 3),
+                          conv_layer(64, 512, 3),
+                          conv_layer(in_chan=512, out_chan=512, kernel_size=3),
+                          conv_layer(in_chan=512, out_chan=512, kernel_size=3),
+                          conv_layer(in_chan=512, out_chan=512, kernel_size=3),
+                          conv_layer(512, 512, 3),
+                          nn.Flatten(),
+                          nn.Linear(18432, 1),
+                          nn.Sigmoid()
+                          ).to(device)
+    
+    loss_fn = nn.BCELoss().to(device=device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    return model, loss_fn, optimizer
 

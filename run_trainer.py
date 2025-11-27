@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 import os
-from .model_trainer import trigger_training_process, get_model
-from .data_obj import get_data, get_tiff_img
+from model_trainer import trigger_training_process, get_model
+from data_obj import get_data, get_tiff_img
 import json
 
 
@@ -44,4 +44,5 @@ def main():
     with open(save_train_results_as, "w") as f:
         json.dump(result, f)
 
-    
+if __name__ == "__main__":
+    main()   

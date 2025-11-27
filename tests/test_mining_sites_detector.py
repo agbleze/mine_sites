@@ -1,0 +1,1 @@
+from mining_sites_detector import mining_sites_detector

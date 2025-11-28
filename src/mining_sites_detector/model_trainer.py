@@ -2,7 +2,9 @@ import numpy as np
 import torch
 from torch_snippets import Report
 import torch.nn as nn
-
+import os
+from copy import deepcopy
+from tqdm import tqdm
 
 @torch.no_grad()
 def accuracy(x, y, model):
@@ -25,6 +27,7 @@ def val_loss(x, y, model, loss_fn):
 
 
 def train_batch(x, y, model, loss_fn, optimizer):
+    #optimizer.zero_grad()
     model.train()
     prediction = model(x)
     #print(f"prediction: {prediction}")
@@ -38,10 +41,13 @@ def train_batch(x, y, model, loss_fn, optimizer):
     return batch_loss.item()
 
 
-
 def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
-                             optimizer, num_epochs: int, device="cuda"
+                             optimizer, num_epochs: int, device="cuda",
+                             model_store_dir="model_store", 
+                             model_name="mining_site_detector_model",
+                             checkpoint_period: int = 1
                              ):
+    os.makedirs(model_store_dir, exist_ok=True)
     train_losses, train_accuracies = [], []
     val_losses, val_accuracies = [], []
     log = Report(n_epochs=num_epochs)
@@ -52,6 +58,7 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
         #_n = len(train_dataload)
         for ix, batch in enumerate(iter(train_dataload)):
             x, y = batch["image"].to(device), batch["label"].to(device)
+            model.to(device)
             batch_loss = train_batch(x, y, model, loss_fn, optimizer)
             train_epoch_losses.append(batch_loss)
         train_epoch_loss = np.array(train_epoch_losses).mean()
@@ -77,6 +84,7 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
         val_accuracies.append(val_epoch_accuracy)
         val_losses.append(val_epoch_loss)
         
+        #if (epoch + 1) % 1 == 0:
         log.record(pos=epoch+1, trn_loss=train_epoch_loss,
                    trn_acc=train_epoch_accuracy,
                    val_acc=val_epoch_accuracy,
@@ -84,6 +92,32 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
                    end="\r"
                    )
         log.report_avgs(epoch+1)
+        
+        if (epoch +1) % checkpoint_period == 0:
+            model_path = os.path.join(model_store_dir, f'{model_name}_epoch_{epoch+1}.pth')
+            torch.save(deepcopy(model.to("cpu").state_dict()), model_path)
+            
+            # save model in state for infernece / resuming training
+            print("saving model as checkpoint")
+            resume_model_path = os.path.join(model_store_dir, 
+                                             f'{model_name}_resumable_epoch_{epoch+1}.pth'
+                                             )
+            torch.save({"epoch": epoch+1,
+                        "model_state_dict": deepcopy(model.to("cpu").state_dict()),
+                        "optimizer_state_dict": deepcopy(optimizer.state_dict()),
+                        "loss": deepcopy(val_epoch_loss),
+                        },
+                       resume_model_path
+                       )
+            
+            # save model as torchscript file for easy loading
+            print("Exporting to torchscript")
+            torchscript_model_path = os.path.join(model_store_dir, 
+                                             f'{model_name}_torchscript_epoch_{epoch+1}.pt'
+                                             )
+            model_scripted = torch.jit.script(deepcopy(model.to("cpu")))
+            model_scripted.save(torchscript_model_path)       
+        
     return {"train_loss": train_losses,
             "train_accuracy": train_accuracies,
             "valid_loss": val_losses,

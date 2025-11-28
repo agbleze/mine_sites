@@ -1,5 +1,13 @@
 # mining_sites_detector
 
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/agbleze/mining_sites_detector/.github%2Fworkflows%2Fci-cd.yml)
+![GitHub Tag](https://img.shields.io/github/v/tag/agbleze/mining_sites_detector)
+![GitHub Release](https://img.shields.io/github/v/release/agbleze/mining_sites_detector)
+![GitHub License](https://img.shields.io/github/license/agbleze/mining_sites_detector)
+![GitHub Tag](https://img.shields.io/github/v/tag/agbleze/Earth_Observation)
+![GitHub Tag](https://img.shields.io/github/v/tag/agbleze/Sentinel 2)
+
+
 Codebase for training model on sentinel 2 data to detect mining sites
 
 ## Installation

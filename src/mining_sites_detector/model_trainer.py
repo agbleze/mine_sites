@@ -45,7 +45,7 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
                              optimizer, num_epochs: int, device="cuda",
                              model_store_dir="model_store", 
                              model_name="mining_site_detector_model",
-                             checkpoint_period: int = 5
+                             checkpoint_interval: int = 1
                              ):
     os.makedirs(model_store_dir, exist_ok=True)
     train_losses, train_accuracies = [], []
@@ -93,7 +93,7 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
                    )
         log.report_avgs(epoch+1)
         
-        if (epoch +1) % checkpoint_period == 0:
+        if (epoch +1) % checkpoint_interval == 0:
             model_path = os.path.join(model_store_dir, f'{model_name}_epoch_{epoch+1}.pth')
             torch.save(deepcopy(model.to("cpu").state_dict()), model_path)
             

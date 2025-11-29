@@ -13,7 +13,7 @@
 
 mining_sites_detector package provides complete pipeline for training deep learning models on Sentinel‑2 imagery to detect mining sites. The package handles all necessary preprocessing, data loading, model architecture design, training and evaluation.
 
-A Convolutional Neural Network (CNN) is design from scratch ingest all 13 bands from sentinel 2.
+A Convolutional Neural Network (CNN) designed from scratch, ingests all 13 bands from sentinel 2.
 
 
 ## Installation
@@ -28,14 +28,13 @@ $ pip install mining_sites_detector
 
 #### Satellite image dataset
 
-A minimum of two directories containing satelite images (tif) for training and validation dataset
+A minimum of two directories containing satelite images (tif) for training and validation dataset is required.
 
 #### Labels for dataset
 
-The labels for dataset are expected to be in a csv file with first column being satelite image name and second column being the groungtruth label. Hence, two csv file for training and validation set in the format described is required
+The labels for dataset are expected to be in a csv file with first column being satelite image name and second column being the groundtruth label. Hence, two csv files for training and validation set in the format described are required
 
-
-The image name in the csv file and the dataset dir is used to create dataset path to read images for processing
+The image name in the csv file and the dataset directory are used to create dataset path to read image for processing.
 
 
 ### Train model using package from CLI
@@ -54,7 +53,7 @@ miner --train_img_dir "YOUR_TRAIN_IMAGE_DIRECTORY_PATH" \
 ```
 
 ## Future work
-- Model architecturing based on Multimodal data fusion on heterogenous data sources for mineral prospectivity
+- Model architecturing that leverages multimodal data fusion from heterogenous data sources for mineral prospectivity
 
 
 ## Contributing

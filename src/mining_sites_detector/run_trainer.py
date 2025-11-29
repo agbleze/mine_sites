@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 import os
 from mining_sites_detector.model_trainer import trigger_training_process, get_model
-from mining_sites_detector.data_obj import get_data, get_tiff_img
+from mining_sites_detector.src.mining_sites_detector.data_preprocessor import get_data, get_tiff_img
 import json
 
 

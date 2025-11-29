@@ -167,3 +167,5 @@ mine_sites/solafune_find_mining_sites/*
 *.csv
 *.pth
 model_store/*
+trigger_train.sh
+TODO

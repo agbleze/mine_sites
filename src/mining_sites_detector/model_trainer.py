@@ -45,7 +45,7 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
                              optimizer, num_epochs: int, device="cuda",
                              model_store_dir="model_store", 
                              model_name="mining_site_detector_model",
-                             checkpoint_period: int = 1
+                             checkpoint_period: int = 5
                              ):
     os.makedirs(model_store_dir, exist_ok=True)
     train_losses, train_accuracies = [], []

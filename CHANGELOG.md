@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.2.0 (2025-11-29)
+
+### Unknown
+
+* Merge branch &#39;main&#39; of https://github.com/agbleze/mining_sites_detector into main ([`deee921`](https://github.com/agbleze/mining_sites_detector/commit/deee921f47543b83ec8442cc2c99341e0113231c))
+
 ## v0.1.0 (2025-11-29)
 
 ### Build
@@ -24,6 +30,8 @@
 
 ### Feature
 
+* feat: add checkpoint_interval to cli ([`80cd0a5`](https://github.com/agbleze/mining_sites_detector/commit/80cd0a54d82115f0642c5a8fa9e52a5a6ea73377))
+
 * feat: add model_store_dir ([`4bd0c99`](https://github.com/agbleze/mining_sites_detector/commit/4bd0c9914812277c5b7ed733820f14ed85d4f8d7))
 
 * feat: save model ([`6d1d8d5`](https://github.com/agbleze/mining_sites_detector/commit/6d1d8d5650622ed0ff6f73366ad3e79f062a656a))
@@ -37,6 +45,8 @@
 * feat: add model_trainer ([`f429e6f`](https://github.com/agbleze/mining_sites_detector/commit/f429e6fb2e2fc266803a9aff5eb532d45b0ee72d))
 
 ### Fix
+
+* fix: change checkpoint_period to checkpoint_interval ([`2399916`](https://github.com/agbleze/mining_sites_detector/commit/2399916bf3214ef6f53705af0a838ed5f66b381d))
 
 * fix: remove data files ([`7758fc2`](https://github.com/agbleze/mining_sites_detector/commit/7758fc230f46f5ba64b9a04ba489d1dc22e290d9))
 

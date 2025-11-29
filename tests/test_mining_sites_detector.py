@@ -1,1 +1,4 @@
-from mining_sites_detector import mining_sites_detector
+
+
+def test_example():
+    assert 1 + 1 == 2

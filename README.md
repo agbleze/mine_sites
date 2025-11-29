@@ -9,7 +9,12 @@
 ![Static Badge](https://img.shields.io/badge/Sentinel-2-brightgreen?style=for-the-badge&labelColor=rgba(58%2C%2051%2C%2039%2C%200.8)&color=rgba(39%2C%20245%2C%20235%2C%200.8))
 
 
-Codebase for training model on sentinel 2 data to detect mining sites
+## Project Description
+
+mining_sites_detector package provides complete pipeline for training deep learning models on Sentinel‑2 imagery to detect mining sites. The package handles all necessary preprocessing, data loading, model architecture design, training and evaluation.
+
+A Convolutional Neural Network (CNN) is design from scratch ingest all 13 bands from sentinel 2.
+
 
 ## Installation
 
@@ -19,7 +24,38 @@ $ pip install mining_sites_detector
 
 ## Usage
 
-- TODO
+### Dataset required
+
+#### Satellite image dataset
+
+A minimum of two directories containing satelite images (tif) for training and validation dataset
+
+#### Labels for dataset
+
+The labels for dataset are expected to be in a csv file with first column being satelite image name and second column being the groungtruth label. Hence, two csv file for training and validation set in the format described is required
+
+
+The image name in the csv file and the dataset dir is used to create dataset path to read images for processing
+
+
+### Train model using package from CLI
+
+An example command to train the model is provided as follows:
+
+```bash
+
+miner --train_img_dir "YOUR_TRAIN_IMAGE_DIRECTORY_PATH" \
+    --val_img_dir "YOUR_VALIDATION_IMAGE_DIRECTORY_PATH" \
+    --train_target_file "YOUR_TRAIN_TARGET_FILEPATH.csv" \
+    --val_target_file "YOUR_VALIDATION_TARGET_FILEPATH" \
+    --num_epochs 50 \
+    --save_train_results_as "training_results.json"
+
+```
+
+## Future work
+- Model architecturing based on Multimodal data fusion on heterogenous data sources for mineral prospectivity
+
 
 ## Contributing
 

@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 import os
 from mining_sites_detector.model_trainer import trigger_training_process, get_model
-from mining_sites_detector.src.mining_sites_detector.data_preprocessor import get_data, get_tiff_img
+from mining_sites_detector.data_preprocessor import get_data, get_tiff_img
 import json
 
 
@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument('--model_store_dir', type=str, default="model_store", help='Directory to store trained models')
     parser.add_argument('--model_name', type=str, default="mining_site_detector_model", help='Base name for the saved model files')
     parser.add_argument('--normalize_bands', action='store_true', help='Whether to normalize image bands')
+    parser.add_argument('--checkpoint_interval', type=int, default=1, help='Interval (in epochs) to save model checkpoints')
     return parser.parse_args()
 
 
@@ -29,6 +30,7 @@ def main():
     save_train_results_as = args.save_train_results_as
     model_store_dir = args.model_store_dir
     model_name = args.model_name
+    checkpoint_interval = args.checkpoint_interval
     
     train_dl, val_dl = get_data(train_img_dir=train_img_dir, 
                             val_image_dir=val_img_dir,
@@ -46,7 +48,8 @@ def main():
                                     optimizer=optimizer, 
                                     num_epochs=num_epochs,
                                     model_store_dir=model_store_dir, 
-                                    model_name=model_name
+                                    model_name=model_name,
+                                    checkpoint_interval=checkpoint_interval
                                     )
     
     

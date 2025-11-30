@@ -65,7 +65,6 @@ class MineSiteImageFolder(Dataset):
                  bands=("B04", "B03", "B02"),
                  normalize_bands=True
                  ) -> None:
-        #super().__init__(transform)
         self.root = root
         self.target_file_path = target_file_path
         self.target_file_has_header = target_file_has_header
@@ -89,8 +88,7 @@ class MineSiteImageFolder(Dataset):
                                     class_to_idx=self.class_to_idx,
                                     img_name=self.img_name, img_idx=self.img_idx,
                                     target_file_has_header=self.target_file_has_header,
-                                    )  ## pass params
-        
+                                    )  
         self.samples = samples
         
  
@@ -140,23 +138,19 @@ class MineSiteImageFolder(Dataset):
         
         instances = []
         if fetch_for_all_classes:
-            #print(f"in fetch_for_all_classes: {fetch_for_all_classes}")
             cls_idx = class_to_idx.values()
-            #print(target_file_df)
             columns = target_file_df.columns.to_list()
             if len(columns) > 2:
                 target_file_df = target_file_df.drop(columns[0], axis=1)
                 columns = columns[1:]
             
             cls_target_df = target_file_df[target_file_df[columns[1]].isin(cls_idx)]
-            #(f"cls_target_df: {cls_target_df}")
             img_names, img_target_idx = cls_target_df[columns[0]].values, cls_target_df[columns[1]].values
             img_path = [os.path.join(root, img_nm) for img_nm in img_names]
             
             for data_sample in zip(img_path, img_target_idx):
                 instances.append(data_sample)
         else: 
-            #print(f"Second Not in fetch_for_all_classes: {fetch_for_all_classes}")   
             if not img_name and not img_idx:
                 raise ValueError(f"""img_name or img_idx must be provided if you want to 
                                     fetch sample for a particular image. Or set fetch_for_all_classes: bool = True
@@ -170,7 +164,7 @@ class MineSiteImageFolder(Dataset):
             img_target_idx = target_file_df[target_file_df[0]==img_name][1].values[0]
             instances.append((img_path, img_target_idx))
             
-        return instances#[10]
+        return instances
         
         
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
@@ -335,7 +329,7 @@ class MineSiteDataset(NonGeoMineSiteClassificationDataset):
     
     
     
-    def __getitem__(self,index):#, index=None):
+    def __getitem__(self,index):
         #if not index:
         #    index = self.index
         img, label = self._load_image(index)

@@ -25,17 +25,13 @@ def val_loss(x, y, model, loss_fn):
 
 
 def train_batch(x, y, model, loss_fn, optimizer):
-    #optimizer.zero_grad()
+    optimizer.zero_grad()
     model.train()
     prediction = model(x)
-    #print(f"prediction: {prediction}")
-    #print(f"prediction.shape: {prediction.shape}")
-    #print(f"y.shape: {y.shape}")
-    #print(f"y: {y}")
     batch_loss = loss_fn(prediction.squeeze(), y)
     batch_loss.backward()
     optimizer.step()
-    optimizer.zero_grad()
+    #optimizer.zero_grad()
     return batch_loss.item()
 
 

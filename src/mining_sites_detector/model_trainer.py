@@ -55,7 +55,6 @@ def trigger_training_process(train_dataload, val_dataload, model, loss_fn,
     for epoch in range(num_epochs):
         train_epoch_losses, train_epoch_accuracies = [], []
         val_epoch_accuracies, val_epoch_losses = [], []
-        #_n = len(train_dataload)
         for ix, batch in enumerate(iter(train_dataload)):
             x, y = batch["image"].to(device), batch["label"].to(device)
             model.to(device)

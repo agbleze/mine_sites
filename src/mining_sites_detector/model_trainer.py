@@ -19,8 +19,6 @@ def accuracy(x, y, model):
 def val_loss(x, y, model, loss_fn):
     model.eval()
     prediction = model(x)
-    #print(f"prediction.squeeze(): {prediction.squeeze()}")
-    #print(f"y: {y}")
     prediction = prediction.squeeze()
     valid_loss = loss_fn(prediction, y)
     return valid_loss.item()

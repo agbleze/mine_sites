@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## v0.2.1 (2025-12-01)
+
+### Fix
+
+* fix: clear optimizer before train ([`c8ead25`](https://github.com/agbleze/mining_sites_detector/commit/c8ead25f940def749565c5fed5d60e8329284e45))
+
+### Unknown
+
+* chores: clean up val_loss ([`7f26b4d`](https://github.com/agbleze/mining_sites_detector/commit/7f26b4d7844e84afd38f921a250080af93621198))
+
+* chores: remove comment ([`57e79fd`](https://github.com/agbleze/mining_sites_detector/commit/57e79fde465fec687c4ecf736d860aa5626d30df))
+
+* chores: clean up ([`8853ec3`](https://github.com/agbleze/mining_sites_detector/commit/8853ec396cdc8b9b41a1bafe59e7e12084c31a29))
+
 ## v0.2.0 (2025-11-29)
 
 ### Unknown

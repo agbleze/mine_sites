@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v0.3.0 (2025-12-02)
+
+### Feature
+
+* feat: add make_prediction ([`cf00d9b`](https://github.com/agbleze/mining_sites_detector/commit/cf00d9b798f7a29ec29e23b4a73f74d15331d998))
+
+* feat: add logging ([`d097658`](https://github.com/agbleze/mining_sites_detector/commit/d0976586094f992ead653c45b608c4c998c510da))
+
 ## v0.2.1 (2025-12-01)
 
 ### Fix

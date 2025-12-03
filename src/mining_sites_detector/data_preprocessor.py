@@ -234,7 +234,6 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
                                             bands=self.bands,
                                             normalize_bands=self.normalize_bands
                                             )
-        #self.transforms = transforms
         
     def _load_image(self, index) -> Tuple[Tensor, Tensor]: # take-out, import NonGeoClassificationDataset and use to override there
         """Load a single image with its class label as tensor
@@ -408,20 +407,23 @@ def get_data(train_img_dir, val_image_dir,
              loader=get_tiff_img,
              return_all_bands=True,
              batch_size=10, drop_last=True,
-             num_workers=4
+             num_workers=4,
+             transforms: Union[Callable, None]=None
             ):
     train_dataset = MineSiteDataset(root=train_img_dir, 
                                     target_file_path=train_target_file_path,
                                     target_file_has_header=target_file_has_header, 
                                     loader=loader,
-                                    return_all_bands=return_all_bands
+                                    return_all_bands=return_all_bands,
+                                    transforms=transforms
                                     
                                     )
     val_dataset = MineSiteDataset(root=val_image_dir, 
                                   target_file_path=val_target_file_path,
                                     target_file_has_header=target_file_has_header, 
                                     loader=loader,
-                                    return_all_bands=return_all_bands
+                                    return_all_bands=return_all_bands,
+                                    transforms=transforms
                                     
                                     )
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size,

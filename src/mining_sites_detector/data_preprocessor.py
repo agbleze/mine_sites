@@ -243,14 +243,9 @@ class NonGeoMineSiteClassificationDataset(MineSiteImageFolder):
             
         """
         self.img, self.label = self.mnfolder[index]
-        #img_array = np.array(img)
         img_tensor = torch.tensor(self.img).permute(2,0,1).float()
-        #img_tensor = img_tensor.permute(2,0,1)
         label_tensor = torch.tensor(self.label).float()
         return img_tensor, label_tensor
-    
-    #def __len__(self) -> int:
-    #    return len(self.img)
     
     def __getitem__(self, index: int) -> dict[str, Tensor]:
         image, label = self._load_image(index)

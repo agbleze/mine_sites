@@ -3,8 +3,6 @@ import os
 import tempfile
 from urllib.parse import urlparse
 import matplotlib.pyplot as plt
-import planetary_computer
-import pystac 
 import torch
 from torch.utils.data import DataLoader
 from torchgeo.datasets import RasterDataset, stack_samples, unbind_samples
